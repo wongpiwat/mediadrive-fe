@@ -1,11 +1,56 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import { useState } from "react";
+import { View, Text, TextInput, Button, FlatList,Image, StyleSheet } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { HelloWave } from '@/components/HelloWave';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
+import axios from "axios";
+import { Audio } from "expo-av";
+
+const ENDPOINT = process.env.EXPO_PUBLIC_API_ENDPOINT;
+
+type Song = {
+  id: number;
+  title: string;
+  artist: string;
+  preview: string;
+  link: string;
+}
+
 export default function HomeScreen() {
+  const [speed, setSpeed] = useState("");
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [sound, setSound] = useState(null);
+
+  const fetchSongs = async () => {
+    try {
+      const response = await axios.get(`${ENDPOINT}/${speed}`);
+      console.log("[DEBUG] songs:", response.data);
+      setSongs(response.data);
+    } catch (error) {
+      console.error("Error fetching songs:", error);
+    }
+  };
+
+  const playSong = async (songUrl: string) => {
+    if (!songUrl) {
+      alert("No preview available for this song.");
+      return;
+    }
+
+    // Stop any currently playing song
+    if (sound) {
+      await sound?.unloadAsync();
+    }
+
+    // Load and play new song
+    const { sound: newSound } = await Audio.Sound.createAsync({ uri: songUrl });
+    setSound(newSound);
+    await newSound.playAsync();
+  };
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -19,42 +64,35 @@ export default function HomeScreen() {
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
+      <View style={styles.container}>
+        <Text style={styles.title}>Enter Speed (km/h)</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={speed}
+          onChangeText={setSpeed}
+        />
+        <Button title="Get Songs" onPress={fetchSongs} />
+        <FlatList
+          data={songs}
+          keyExtractor={(item) => item?.id}
+          renderItem={({ item }) => (
+            <View style={styles.songContainer}>
+              <Text>{item?.title} - {item?.artist}</Text>
+              <Button title="Play" onPress={() => playSong(item.preview)} />
+            </View>
+          )}
+        />
+      </View>
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  title: { fontSize: 20, marginBottom: 10 },
+  input: { width: "80%", borderWidth: 1, padding: 8, marginBottom: 10 },
+  songContainer: { marginVertical: 10, alignItems: "center" },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
