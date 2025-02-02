@@ -16,7 +16,7 @@ import { ThemedView } from '@/components/ThemedView';
 
 import axios from 'axios';
 import { Audio } from 'expo-av';
-import Geolocation from '@react-native-community/geolocation';
+import * as Location from 'expo-location';
 
 const ENDPOINT = process.env.EXPO_PUBLIC_API_ENDPOINT;
 
@@ -33,41 +33,50 @@ export default function HomeScreen() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [sound, setSound] = useState(null);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   useEffect(() => {
-    let watchId: number | null = null;
-
-    const getLocationUpdates = () => {
-      watchId = Geolocation.watchPosition(
-        position => {
-          if (position.coords.speed) {
-            setSpeed(position.coords.speed);
-          }
-        },
-        error => {
-          console.log(error);
-        },
-        { enableHighAccuracy: true, distanceFilter: 10 },
-      );
-    };
-
-    getLocationUpdates();
-
-    return () => {
-      if (watchId) {
-        Geolocation.clearWatch(watchId);
+    async function getCurrentLocation() {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Permission to access location was denied');
+        return;
       }
-    };
+
+      let location = await Location.getCurrentPositionAsync({
+        timeInterval: 1000,
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
+
+      const speedMps = (location.coords.speed || 0) * 2.23694; // Convert m/s to mph (1 m/s = 2.23694 mph)
+      setSpeed(speedMps);
+    }
+
+    const intervalId = setInterval(getCurrentLocation, 10000); // Call every 10 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on component unmount
   }, []);
 
-  const fetchSongs = async () => {
-    try {
-      const response = await axios.get(`${ENDPOINT}/${speed}`);
-      console.log('[DEBUG] songs:', response.data);
-      setSongs(response.data);
-    } catch (error) {
-      console.error('Error fetching songs:', error);
-    }
-  };
+  useEffect(() => {
+    let intervalId;
+
+    const fetchSongs = async () => {
+      try {
+        console.log('[DEBUG] send speed:', speed);
+        const response = await axios.get(`${ENDPOINT}/${speed}`);
+        console.log('[DEBUG] songs:', response.data);
+        setSongs(response.data);
+      } catch (error) {
+        console.error('Error fetching songs:', error);
+      }
+    };
+
+    fetchSongs(); // Initial fetch songs
+
+    intervalId = setInterval(fetchSongs, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
 
   const playSong = async (songUrl: string, songIndex: number) => {
     if (!songUrl) {
@@ -106,13 +115,16 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
+      {/*<ThemedView style={styles.titleContainer}>*/}
+      {/*  <ThemedText type="title">Welcome!</ThemedText>*/}
+      {/*  <HelloWave />*/}
+      {/*</ThemedView>*/}
       <View style={styles.container}>
-        <Text style={styles.title}>Current Speed: {Math.abs(speed)} (MPH)</Text>
-        <Button title="Get Songs" onPress={fetchSongs} />
+        {errorMsg && <Text style={styles.title}>{errorMsg}</Text>}
+        <Text style={styles.title}>
+          Current Speed: {Math.round(speed)} (MPH)
+        </Text>
+        <Button title="Play" onPress={() => playSong(songs[0].preview, 0)} />
         <FlatList
           data={songs}
           keyExtractor={item => item?.id}
@@ -121,10 +133,6 @@ export default function HomeScreen() {
               <Text>
                 {item?.title} - {item?.artist}
               </Text>
-              <Button
-                title="Play"
-                onPress={() => playSong(item.preview, index)}
-              />
             </View>
           )}
         />

@@ -43,7 +43,7 @@ export default function RootLayout() {
               <IconSymbol size={28} name="house.fill" color={color} />
             ),
           }}
-        />{' '}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
