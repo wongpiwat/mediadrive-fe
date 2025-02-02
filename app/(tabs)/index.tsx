@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { ThemedView } from '@/components/ThemedView';
 
 import axios from 'axios';
 import { Audio } from 'expo-av';
+import Geolocation from '@react-native-community/geolocation';
 
 const ENDPOINT = process.env.EXPO_PUBLIC_API_ENDPOINT;
 
@@ -28,9 +29,35 @@ type Song = {
 };
 
 export default function HomeScreen() {
-  const [speed, setSpeed] = useState('');
+  const [speed, setSpeed] = useState<number>(0);
   const [songs, setSongs] = useState<Song[]>([]);
   const [sound, setSound] = useState(null);
+
+  useEffect(() => {
+    let watchId: number | null = null;
+
+    const getLocationUpdates = () => {
+      watchId = Geolocation.watchPosition(
+        position => {
+          if (position.coords.speed) {
+            setSpeed(position.coords.speed);
+          }
+        },
+        error => {
+          console.log(error);
+        },
+        { enableHighAccuracy: true, distanceFilter: 10 },
+      );
+    };
+
+    getLocationUpdates();
+
+    return () => {
+      if (watchId) {
+        Geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
 
   const fetchSongs = async () => {
     try {
@@ -59,7 +86,7 @@ export default function HomeScreen() {
     await newSound.playAsync();
 
     // Set a callback to play the next song when the current song ends
-    newSound.setOnPlaybackStatusUpdate(async (status) => {
+    newSound.setOnPlaybackStatusUpdate(async status => {
       if (status?.didJustFinish) {
         const nextSongIndex = songIndex + 1;
         if (nextSongIndex < songs.length) {
@@ -84,13 +111,7 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <View style={styles.container}>
-        <Text style={styles.title}>Enter Speed (km/h)</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={speed}
-          onChangeText={setSpeed}
-        />
+        <Text style={styles.title}>Current Speed: {Math.abs(speed)} (MPH)</Text>
         <Button title="Get Songs" onPress={fetchSongs} />
         <FlatList
           data={songs}
@@ -100,7 +121,10 @@ export default function HomeScreen() {
               <Text>
                 {item?.title} - {item?.artist}
               </Text>
-              <Button title="Play" onPress={() => playSong(item.preview, index)} />
+              <Button
+                title="Play"
+                onPress={() => playSong(item.preview, index)}
+              />
             </View>
           )}
         />
