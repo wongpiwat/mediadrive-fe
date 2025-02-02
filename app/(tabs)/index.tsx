@@ -42,7 +42,7 @@ export default function HomeScreen() {
     }
   };
 
-  const playSong = async (songUrl: string) => {
+  const playSong = async (songUrl: string, songIndex: number) => {
     if (!songUrl) {
       alert('No preview available for this song.');
       return;
@@ -57,6 +57,17 @@ export default function HomeScreen() {
     const { sound: newSound } = await Audio.Sound.createAsync({ uri: songUrl });
     setSound(newSound);
     await newSound.playAsync();
+
+    // Set a callback to play the next song when the current song ends
+    newSound.setOnPlaybackStatusUpdate(async (status) => {
+      if (status?.didJustFinish) {
+        const nextSongIndex = songIndex + 1;
+        if (nextSongIndex < songs.length) {
+          const nextSong = songs[nextSongIndex];
+          await playSong(nextSong.preview, nextSongIndex);
+        }
+      }
+    });
   };
 
   return (
@@ -84,12 +95,12 @@ export default function HomeScreen() {
         <FlatList
           data={songs}
           keyExtractor={item => item?.id}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <View style={styles.songContainer}>
               <Text>
                 {item?.title} - {item?.artist}
               </Text>
-              <Button title="Play" onPress={() => playSong(item.preview)} />
+              <Button title="Play" onPress={() => playSong(item.preview, index)} />
             </View>
           )}
         />
