@@ -26,10 +26,11 @@ type Song = {
 };
 
 export default function HomeScreen() {
-  const [songs, setSongs] = useState<Song[]>([]);
+  const [playlist, setPlaylist] = useState<Song[]>([]);
   const [sound, setSound] = useState(null);
   const [currentSong, setCurrentSong] = useState<Song>();
   const [currentIndex, setCurrentIndex] = useState<Number>(0);
+  const [isFinishSong, setIsFinishSong] = useState<boolean>(false);
 
   const speedRef = useRef(0);
 
@@ -52,31 +53,38 @@ export default function HomeScreen() {
       speedRef.current = (location.coords.speed || 0) * 2.23694;
     }
 
-    const intervalId = setInterval(getCurrentLocation, 10000); // Call every 10 seconds
+    const intervalId = setInterval(getCurrentLocation, 30000); // Call every 30 seconds
 
     return () => clearInterval(intervalId); // Cleanup interval on component unmount
   }, []);
 
   useEffect(() => {
-    const fetchSongs = async () => {
+    const fetchPlaylist = async () => {
       try {
         console.log('[DEBUG] send speed:', speedRef.current);
         const response = await axios.get(`${ENDPOINT}/${speedRef.current}`);
-        // console.log('[DEBUG] songs:', response.data);
-        setSongs(response.data);
+        // console.log('[DEBUG] playlist:', response.data);
+        setPlaylist(response.data);
       } catch (error) {
-        console.error('Error fetching songs:', error);
+        console.error('Error fetching playlist:', error);
       }
     };
 
-    fetchSongs(); // Initial fetch songs
+    fetchPlaylist(); // Initial fetch playlist
 
-    const intervalId = setInterval(fetchSongs, 10000); // Poll every 10 seconds
+    const intervalId = setInterval(fetchPlaylist, 10000); // Poll every 10 seconds
 
     return () => clearInterval(intervalId); // Cleanup on unmount
   }, [speedRef.current]);
 
-  const playSong = async (songUrl: string, songIndex: number) => {
+  useEffect(() => {
+    if (isFinishSong) {
+      handleNextSong();
+      setIsFinishSong(false);
+    }
+  }, [isFinishSong]);
+
+  const handlePlaySong = async (songUrl: string, songIndex: number) => {
     if (!songUrl) {
       alert('No preview available for this song.');
       return;
@@ -90,7 +98,7 @@ export default function HomeScreen() {
     // Load and play new song
     const { sound: newSound } = await Audio.Sound.createAsync({ uri: songUrl });
     setSound(newSound);
-    setCurrentSong(songs[songIndex]);
+    setCurrentSong(playlist[songIndex]);
     setCurrentIndex(songIndex);
     console.log(`[DEBUG] Playing song Index: ${songIndex}`);
     await newSound.playAsync();
@@ -98,42 +106,48 @@ export default function HomeScreen() {
     // Set a callback to play the next song when the current song ends
     newSound.setOnPlaybackStatusUpdate(async status => {
       if (status?.didJustFinish) {
-        const nextSongIndex = songIndex + 1;
-        if (nextSongIndex < songs.length) {
-          const nextSong = songs[nextSongIndex];
-          await playSong(nextSong.preview, nextSongIndex);
-        }
+        console.log(
+          '[DEBUG] Song finished, playing next song',
+          songIndex,
+          currentIndex,
+        );
+        setIsFinishSong(true);
       }
     });
   };
 
-  const pauseSong = async () => {
+  const handlePauseSong = async () => {
     if (sound) {
       await sound?.pauseAsync();
     }
   };
 
   // Move to next song button
-  const nextSong = async () => {
+  const handleNextSong = async () => {
     if (sound) {
       await sound?.unloadAsync();
     }
     const nextSongIndex = currentIndex + 1;
-    if (nextSongIndex < songs.length) {
-      const nextSong = songs[nextSongIndex];
-      await playSong(nextSong.preview, nextSongIndex);
+
+    if (nextSongIndex < playlist.length) {
+      const nextSong = playlist[nextSongIndex];
+      setCurrentIndex(nextSongIndex);
+      setCurrentSong(nextSong);
+      await handlePlaySong(nextSong.preview, nextSongIndex);
     }
   };
 
   // Move to previous song button
-  const prevSong = async () => {
+  const handlePrevSong = async () => {
     if (sound) {
       await sound?.unloadAsync();
     }
     const prevSongIndex = currentIndex - 1;
     if (prevSongIndex >= 0) {
-      const prevSong = songs[prevSongIndex];
-      await playSong(prevSong.preview, prevSongIndex);
+      const prevSong = playlist[prevSongIndex];
+      setCurrentIndex(prevSongIndex);
+      setCurrentSong(prevSong);
+      await handlePlaySong(prevSong.preview, prevSongIndex);
     }
   };
 
@@ -153,16 +167,18 @@ export default function HomeScreen() {
         </Text>
 
         <Text style={styles.title}>
-          {currentIndex}: Current Sound: {currentSong?.title} -
-          {currentSong?.artist}
+          {currentIndex}: {currentSong?.title} - {currentSong?.artist}
         </Text>
 
-        <Button title="Play" onPress={() => playSong(songs[0].preview, 0)} />
-        <Button title="Pause" onPress={() => pauseSong()} />
-        <Button title="Next" onPress={() => nextSong()} />
-        <Button title="Back" onPress={() => prevSong()} />
+        <Button
+          title="Play"
+          onPress={() => handlePlaySong(playlist[0].preview, 0)}
+        />
+        <Button title="Pause" onPress={() => handlePauseSong()} />
+        <Button title="Next" onPress={() => handleNextSong()} />
+        <Button title="Back" onPress={() => handlePrevSong()} />
         <FlatList
-          data={songs}
+          data={playlist}
           keyExtractor={item => item?.id}
           renderItem={({ item, index }) => (
             <View style={styles.songContainer}>
