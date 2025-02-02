@@ -116,7 +116,7 @@ export default function HomeScreen() {
     });
   };
 
-  const handlePauseSong = async () => {
+  const handleStopSong = async () => {
     if (sound) {
       await sound?.pauseAsync();
     }
@@ -174,7 +174,7 @@ export default function HomeScreen() {
           title="Play"
           onPress={() => handlePlaySong(playlist[0].preview, 0)}
         />
-        <Button title="Pause" onPress={() => handlePauseSong()} />
+        <Button title="Stop" onPress={() => handleStopSong()} />
         <Button title="Next" onPress={() => handleNextSong()} />
         <Button title="Back" onPress={() => handlePrevSong()} />
         <FlatList
