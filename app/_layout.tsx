@@ -38,7 +38,7 @@ export default function RootLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'AIMusicDrive',
+            title: 'MusicDrive',
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="house.fill" color={color} />
             ),
