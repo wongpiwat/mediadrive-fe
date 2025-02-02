@@ -1,18 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
+  Alert,
   Button,
   FlatList,
   Image,
   StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { HelloWave } from '@/components/HelloWave';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 
 import axios from 'axios';
 import { Audio } from 'expo-av';
@@ -29,9 +26,12 @@ type Song = {
 };
 
 export default function HomeScreen() {
-  const [speed, setSpeed] = useState<number>(0);
   const [songs, setSongs] = useState<Song[]>([]);
   const [sound, setSound] = useState(null);
+  const [currentSong, setCurrentSong] = useState<Song>();
+  const [currentIndex, setCurrentIndex] = useState<Number>(0);
+
+  const speedRef = useRef(0);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -48,8 +48,8 @@ export default function HomeScreen() {
         accuracy: Location.Accuracy.BestForNavigation,
       });
 
-      const speedMps = (location.coords.speed || 0) * 2.23694; // Convert m/s to mph (1 m/s = 2.23694 mph)
-      setSpeed(speedMps);
+      // Convert m/s to mph (1 m/s = 2.23694 mph)
+      speedRef.current = (location.coords.speed || 0) * 2.23694;
     }
 
     const intervalId = setInterval(getCurrentLocation, 10000); // Call every 10 seconds
@@ -58,13 +58,11 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    let intervalId;
-
     const fetchSongs = async () => {
       try {
-        console.log('[DEBUG] send speed:', speed);
-        const response = await axios.get(`${ENDPOINT}/${speed}`);
-        console.log('[DEBUG] songs:', response.data);
+        console.log('[DEBUG] send speed:', speedRef.current);
+        const response = await axios.get(`${ENDPOINT}/${speedRef.current}`);
+        // console.log('[DEBUG] songs:', response.data);
         setSongs(response.data);
       } catch (error) {
         console.error('Error fetching songs:', error);
@@ -73,10 +71,10 @@ export default function HomeScreen() {
 
     fetchSongs(); // Initial fetch songs
 
-    intervalId = setInterval(fetchSongs, 10000); // Poll every 10 seconds
+    const intervalId = setInterval(fetchSongs, 10000); // Poll every 10 seconds
 
     return () => clearInterval(intervalId); // Cleanup on unmount
-  }, []);
+  }, [speedRef.current]);
 
   const playSong = async (songUrl: string, songIndex: number) => {
     if (!songUrl) {
@@ -92,6 +90,9 @@ export default function HomeScreen() {
     // Load and play new song
     const { sound: newSound } = await Audio.Sound.createAsync({ uri: songUrl });
     setSound(newSound);
+    setCurrentSong(songs[songIndex]);
+    setCurrentIndex(songIndex);
+    console.log(`[DEBUG] Playing song Index: ${songIndex}`);
     await newSound.playAsync();
 
     // Set a callback to play the next song when the current song ends
@@ -106,6 +107,36 @@ export default function HomeScreen() {
     });
   };
 
+  const pauseSong = async () => {
+    if (sound) {
+      await sound?.pauseAsync();
+    }
+  };
+
+  // Move to next song button
+  const nextSong = async () => {
+    if (sound) {
+      await sound?.unloadAsync();
+    }
+    const nextSongIndex = currentIndex + 1;
+    if (nextSongIndex < songs.length) {
+      const nextSong = songs[nextSongIndex];
+      await playSong(nextSong.preview, nextSongIndex);
+    }
+  };
+
+  // Move to previous song button
+  const prevSong = async () => {
+    if (sound) {
+      await sound?.unloadAsync();
+    }
+    const prevSongIndex = currentIndex - 1;
+    if (prevSongIndex >= 0) {
+      const prevSong = songs[prevSongIndex];
+      await playSong(prevSong.preview, prevSongIndex);
+    }
+  };
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -115,23 +146,28 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
-      {/*<ThemedView style={styles.titleContainer}>*/}
-      {/*  <ThemedText type="title">Welcome!</ThemedText>*/}
-      {/*  <HelloWave />*/}
-      {/*</ThemedView>*/}
       <View style={styles.container}>
         {errorMsg && <Text style={styles.title}>{errorMsg}</Text>}
         <Text style={styles.title}>
-          Current Speed: {Math.round(speed)} (MPH)
+          Current Speed: {Math.round(speedRef.current)} (MPH)
         </Text>
+
+        <Text style={styles.title}>
+          {currentIndex}: Current Sound: {currentSong?.title} -
+          {currentSong?.artist}
+        </Text>
+
         <Button title="Play" onPress={() => playSong(songs[0].preview, 0)} />
+        <Button title="Pause" onPress={() => pauseSong()} />
+        <Button title="Next" onPress={() => nextSong()} />
+        <Button title="Back" onPress={() => prevSong()} />
         <FlatList
           data={songs}
           keyExtractor={item => item?.id}
           renderItem={({ item, index }) => (
             <View style={styles.songContainer}>
               <Text>
-                {item?.title} - {item?.artist}
+                {index}: {item?.title} - {item?.artist}
               </Text>
             </View>
           )}
