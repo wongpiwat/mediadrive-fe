@@ -1,13 +1,21 @@
-import { useState } from "react";
-import { View, Text, TextInput, Button, FlatList,Image, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  FlatList,
+  Image,
+  StyleSheet,
+} from 'react-native';
 
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { HelloWave } from '@/components/HelloWave';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
-import axios from "axios";
-import { Audio } from "expo-av";
+import axios from 'axios';
+import { Audio } from 'expo-av';
 
 const ENDPOINT = process.env.EXPO_PUBLIC_API_ENDPOINT;
 
@@ -17,26 +25,26 @@ type Song = {
   artist: string;
   preview: string;
   link: string;
-}
+};
 
 export default function HomeScreen() {
-  const [speed, setSpeed] = useState("");
+  const [speed, setSpeed] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const [sound, setSound] = useState(null);
 
   const fetchSongs = async () => {
     try {
       const response = await axios.get(`${ENDPOINT}/${speed}`);
-      console.log("[DEBUG] songs:", response.data);
+      console.log('[DEBUG] songs:', response.data);
       setSongs(response.data);
     } catch (error) {
-      console.error("Error fetching songs:", error);
+      console.error('Error fetching songs:', error);
     }
   };
 
   const playSong = async (songUrl: string) => {
     if (!songUrl) {
-      alert("No preview available for this song.");
+      alert('No preview available for this song.');
       return;
     }
 
@@ -75,10 +83,12 @@ export default function HomeScreen() {
         <Button title="Get Songs" onPress={fetchSongs} />
         <FlatList
           data={songs}
-          keyExtractor={(item) => item?.id}
+          keyExtractor={item => item?.id}
           renderItem={({ item }) => (
             <View style={styles.songContainer}>
-              <Text>{item?.title} - {item?.artist}</Text>
+              <Text>
+                {item?.title} - {item?.artist}
+              </Text>
               <Button title="Play" onPress={() => playSong(item.preview)} />
             </View>
           )}
@@ -89,10 +99,15 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   title: { fontSize: 20, marginBottom: 10 },
-  input: { width: "80%", borderWidth: 1, padding: 8, marginBottom: 10 },
-  songContainer: { marginVertical: 10, alignItems: "center" },
+  input: { width: '80%', borderWidth: 1, padding: 8, marginBottom: 10 },
+  songContainer: { marginVertical: 10, alignItems: 'center' },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
