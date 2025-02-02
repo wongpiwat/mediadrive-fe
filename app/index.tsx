@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Button,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Button, FlatList, Image, StyleSheet, Text, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 
@@ -162,7 +154,7 @@ export default function HomeScreen() {
       }>
       <View style={styles.container}>
         {errorMsg && <Text style={styles.title}>{errorMsg}</Text>}
-        <Text style={styles.title}>
+        <Text style={styles.speed}>
           Current Speed: {Math.round(speedRef.current)} (MPH)
         </Text>
 
@@ -170,13 +162,15 @@ export default function HomeScreen() {
           {currentIndex}: {currentSong?.title} - {currentSong?.artist}
         </Text>
 
-        <Button
-          title="Play"
-          onPress={() => handlePlaySong(playlist[0].preview, 0)}
-        />
-        <Button title="Stop" onPress={() => handleStopSong()} />
-        <Button title="Next" onPress={() => handleNextSong()} />
-        <Button title="Back" onPress={() => handlePrevSong()} />
+        <View style={styles.row}>
+          <Button
+            title="Play"
+            onPress={() => handlePlaySong(playlist[0].preview, 0)}
+          />
+          <Button title="Stop" onPress={() => handleStopSong()} />
+          <Button title="Next" onPress={() => handleNextSong()} />
+          <Button title="Back" onPress={() => handlePrevSong()} />
+        </View>
         <FlatList
           data={playlist}
           keyExtractor={item => item?.id}
@@ -200,6 +194,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  speed: { fontSize: 20, marginBottom: 10, fontWeight: 'bold' },
   title: { fontSize: 20, marginBottom: 10 },
   input: { width: '80%', borderWidth: 1, padding: 8, marginBottom: 10 },
   songContainer: { marginVertical: 10, alignItems: 'center' },
